@@ -1,103 +1,98 @@
-<h1 align="center">gupload 📡  </h1>
+<h1 align="center">File Shuttle</h1>
 
-<h5 align="center">Upload files with gRPC and/or HTTP2</h5>
+<h5 align="center">Streamlined File Transfers with gRPC and HTTP/2</h5>
 
 <br/>
 
-### Overview
+### Introduction
 
-`gupload` is an experiment to verify how uploading files via gRPC compares to a barebones HTTP2 server.
+File Shuttle is a versatile tool designed to explore the efficiency of file uploads using both gRPC and HTTP/2 protocols. This project provides a comparative analysis of the two approaches.
 
-See [sending-files-via-grpc](https://ops.tips/blog/sending-files-via-grpc/) to check the experiment.
+Explore the code and experiment with various scenarios to understand how these protocols handle large file transfers.
+
 
 ```
 NAME:
-   gupload - upload files as fast as possible
+   fileshuttle - Efficient file transfer utility
 
 USAGE:
-   gupload [global options] command [command options] [arguments...]
+   fileshuttle [global options] command [command options] [arguments...]
 
 VERSION:
-   0.0.0
+   1.0.0
 
 COMMANDS:
-     serve    initiates a gRPC server
-     upload   uploads a file
+     server    starts a file transfer server
+     send      uploads a file to the server
      help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --debug        enables debug logging (default: false)
+   --verbose    enable detailed logging (default: false)
    --help, -h     show help (default: false)
    --version, -v  print the version (default: false)
 ```
 
-Use `serve` to initiate a server (either `gRPC` or `http2` based) and `upload` to upload a file to a given address (either via `gRPC` or `http2`).
+Utilize the `server` command to initiate a file transfer server, and the `send` command to upload files to the specified server address.
 
 
-#### HTTP2
+#### HTTP/2 Configuration
 
-The `http2` version of both server and client require certificates / private keys. This is needed to have a well formed TLS connection between them.
+To leverage HTTP/2, you'll need to configure TLS/SSL certificates. This ensures a secure connection between the client and server.
 
-The server takes both of them (certificate and private key) while the client just takes the certificate.
+The server requires both the certificate and private key. In contrast, the client only needs the server's certificate.
 
-I've already created some certificates at `./certs` so you can just reference them as you wish (you can regenerate at any time with `make certs`).
+Sample certificates are provided in the `certs` directory for your convenience. You can regenerate them at any time using `make certs`.
 
 ```sh
-# Start the HTTP2 server making use of HTTP2
-# with the TLS configuration using the key
-# and certificate from ./certs
-gupload serve \
-        --port 1313 \
+# Initiate the HTTP/2 server, leveraging TLS with provided certificate and key.
+fileshuttle server \
+        --port 8080 \
         --http2 \
-        --key ./certs/localhost.key \
-        --certificate ./certs/localhost.cert
+        --cert ./certs/server.crt \
+        --key ./certs/server.key
 
 
-# Perform the upload of the file `./main.go` to the 
-# server at `localhost:1313` via HTTP2 appending
-# the self-signed certificate from `certs` to the
-# root CAs.
-gupload upload \
+# Send the file `data.txt` to the server at `localhost:8080` using HTTP/2. 
+# The client trusts the server certificate provided.
+fileshuttle send \
         --http2 \
-        --address localhost:1313 \
-        --root-certificate ./certs/localhost.cert \
-        --file ./main.go
+        --address localhost:8080 \
+        --cert ./certs/server.crt \
+        --file data.txt 
 ```
 
-*note.: the certificates have `CN` (common name) set to `localhost`. As the client is not skipping insecure certificates, it'll check the address you're trying to connect to and see if it matches the certificate's CN. If you want to customize that (e.g, connect to `example.com`, make sure you issue a certificate with `CN=example.com` - or make use of SAN).*
+**Important:** The certificates are generated with a specific hostname. Ensure that the hostname you connect to matches the hostname in the certificate's Subject Alternative Name (SAN) or Common Name (CN) field. Otherwise, the client may reject the connection due to certificate mismatch.
 
-#### GRPC
 
-`grpc` is the default mechanism used (i.e., to make use of it you should **not** specify `--http2`) for both clients and servers.
+#### gRPC Configuration
 
-There are two forms of running it:
+gRPC is the default protocol used for file transfers. If you don't specify `--http2`, File Shuttle will automatically use gRPC.
 
-- via "plain-text" TCP
-- via TLS-based http2
+gRPC offers two primary modes:
 
-To use the first, don't specify certificates, private keys or root certificates. To use the second, do the opposite.
+- **Plain-text TCP**: No certificates are required.
+- **TLS-based HTTP/2**: Requires certificates and keys.
 
-For instance, to use plain tcp:
+**Plain-text TCP example:**
 
-```
-# Create a server
-gupload serve
+```sh
+# Start the gRPC server using plain-text TCP.
+fileshuttle server
 
-# Upload a file
-gupload --file ./main.go
-```
-
-To use tls-based connections:
-
-```
-# Create a server
-gupload serve \
-        --key ./certs/localhost.key \
-        --certificate ./certs/localhost.cert
-
-# Upload a file
-gupload upload \
-        --root-certificate ./certs/localhost.cert \
-        --file ./main.go
+# Send a file using plain-text TCP.
+fileshuttle send --file myfile.zip 
 ```
 
+**TLS-based HTTP/2 example:**
+
+```sh
+# Start the gRPC server with TLS enabled.
+fileshuttle server \
+        --cert ./certs/server.crt \
+        --key ./certs/server.key
+
+# Send a file using TLS-based HTTP/2.
+fileshuttle send \
+        --cert ./certs/server.crt \
+        --file mydata.bin
+```
